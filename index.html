@@ -471,7 +471,7 @@
     <!-- ═══ Toolbar ═══ -->
     <div id="toolbar">
         <div class="file-input-wrap">
-            <button class="btn primary" id="loadBtn">Загрузить</button>
+            <button class="btn primary" id="loadBtn">Upload</button>
             <input type="file" id="fileInput" accept="image/*" />
         </div>
 
@@ -911,8 +911,8 @@
             state.drawPoints = [];
             state.selection = null; // очищаем при смене инструмента
             // Обновляем текст кнопки
-            const label = tool === 'rectangle' ? 'Прямоугольник' : 'Лассо';
-            selectionBtn.innerHTML = `▽ Выделение: ${label}`;
+            const label = tool === 'rectangle' ? 'rectangle' : 'lasso';
+            selectionBtn.innerHTML = `Selected: ${label}`;
             // Обновляем активный пункт в меню
             document.querySelectorAll('.dropdown-item').forEach(item => {
                 item.classList.remove('active');
