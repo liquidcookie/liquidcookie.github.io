@@ -1,20 +1,1186 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <title>Главная страница</title>
-    <style type="text/css">
-   <!--
-   		body {background-color: #fff;
-background-image: url(image4.png);}
-h1 {color: #ff1723}
-p {color: #7bff2e}
-h2 {color: #ffd917}
-   -->
-   </style>
-    			 				
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JPEGify</title>
+    <style>
+        /* ── Reset & base ── */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #1e1e2f;
+            font-family: 'Comic Sans', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #e4e4ef;
+        }
+
+        /* ── Toolbar ── */
+        #toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #2a2a3e;
+            border-bottom: 1px solid #3a3a52;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            min-height: 56px;
+        }
+
+        #toolbar .btn {
+            background: #3a3a52;
+            border: none;
+            color: #d0d0e0;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        #toolbar .btn:hover {
+            background: #4a4a66;
+        }
+        #toolbar .btn:active {
+            transform: scale(0.96);
+        }
+        #toolbar .btn.active {
+            background: #4a6fa5;
+            box-shadow: 0 0 0 2px #6a8fc5;
+        }
+        #toolbar .btn.primary {
+            background: #3d7a5a;
+        }
+        #toolbar .btn.primary:hover {
+            background: #4d8a6a;
+        }
+        #toolbar .btn.danger {
+            background: #7a3a3a;
+        }
+        #toolbar .btn.danger:hover {
+            background: #8a4a4a;
+        }
+        #toolbar .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #toolbar .spacer {
+            flex: 1;
+        }
+        #toolbar .file-input-wrap {
+            position: relative;
+            display: inline-block;
+        }
+        #toolbar .file-input-wrap input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ── Dropdown ── */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #2a2a3e;
+            border: 1px solid #3a3a52;
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 160px;
+            z-index: 100;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            margin-top: 4px;
+        }
+        .dropdown .dropdown-menu.show {
+            display: block;
+        }
+        .dropdown .dropdown-menu .dropdown-item {
+            padding: 8px 18px;
+            font-size: 13px;
+            color: #d0d0e0;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dropdown .dropdown-menu .dropdown-item:hover {
+            background: #3a3a52;
+        }
+        .dropdown .dropdown-menu .dropdown-item.active {
+            background: #4a6fa5;
+        }
+        .dropdown .dropdown-menu .dropdown-item .check {
+            margin-left: auto;
+            color: #6a8fc5;
+            font-weight: 700;
+        }
+
+        /* ── Canvas container ── */
+        #canvasContainer {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+            background: #14141f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            cursor: default;
+        }
+
+        #canvasContainer.drag-over {
+            background: #1a1a2e;
+        }
+        #canvasContainer.drag-over::after {
+            content: '📁 Отпустите изображение';
+            position: absolute;
+            inset: 30px;
+            border: 3px dashed #4a6fa5;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #6a8fc5;
+            background: rgba(30, 30, 50, 0.7);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #mainCanvas {
+            display: block;
+            background: #1a1a2a;
+            border-radius: 4px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
+            image-rendering: auto;
+            transform-origin: center center;
+            transition: width 0.08s ease, height 0.08s ease;
+            cursor: crosshair;
+        }
+
+        /* ── Zoom controls (bottom right) ── */
+        #zoomControls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(20, 20, 35, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 6px 14px 6px 10px;
+            border-radius: 30px;
+            border: 1px solid #3a3a52;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+            z-index: 20;
+        }
+
+        #zoomControls button {
+            background: #3a3a52;
+            border: none;
+            color: #d0d0e0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        #zoomControls button:hover {
+            background: #4a4a66;
+        }
+        #zoomControls button:active {
+            transform: scale(0.92);
+        }
+
+        #zoomControls input[type="range"] {
+            width: 110px;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #4a4a66;
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #zoomControls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #6a8fc5;
+            cursor: pointer;
+            border: 2px solid #8aaae0;
+            transition: 0.1s;
+        }
+
+        #zoomControls input[type="range"]::-webkit-slider-thumb:hover {
+            background: #7a9fd5;
+            transform: scale(1.1);
+        }
+
+        #zoomControls input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #6a8fc5;
+            cursor: pointer;
+            border: 2px solid #8aaae0;
+        }
+
+        #zoomLabel {
+            min-width: 48px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: #c0c0d8;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Modal ── */
+        #modalOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        #modalOverlay.open {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        #modalBox {
+            background: #2a2a3e;
+            border-radius: 18px;
+            padding: 32px 40px 28px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            border: 1px solid #3a3a52;
+        }
+
+        #modalBox h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #e8e8f4;
+        }
+
+        #modalBox .sub {
+            font-size: 14px;
+            color: #9898b0;
+            margin-bottom: 22px;
+        }
+
+        #modalBox .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        #modalBox .slider-row label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #c8c8dc;
+            white-space: nowrap;
+        }
+
+        #modalBox .slider-row input[type="range"] {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #4a4a66;
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #modalBox .slider-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #6a8fc5;
+            cursor: pointer;
+            border: 2px solid #8aaae0;
+        }
+
+        #modalBox .slider-row input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #6a8fc5;
+            cursor: pointer;
+            border: 2px solid #8aaae0;
+        }
+
+        #modalBox .quality-value {
+            font-size: 20px;
+            font-weight: 700;
+            min-width: 48px;
+            text-align: center;
+            color: #6a8fc5;
+        }
+
+        #modalBox .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        #modalBox .modal-actions .btn {
+            padding: 10px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        #modalBox .modal-actions .btn:active {
+            transform: scale(0.96);
+        }
+
+        #modalBox .modal-actions .btn-cancel {
+            background: #3a3a52;
+            color: #c0c0d8;
+        }
+        #modalBox .modal-actions .btn-cancel:hover {
+            background: #4a4a66;
+        }
+
+        #modalBox .modal-actions .btn-apply {
+            background: #3d7a5a;
+            color: #fff;
+        }
+        #modalBox .modal-actions .btn-apply:hover {
+            background: #4d8a6a;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            #toolbar {
+                padding: 6px 10px;
+                gap: 4px;
+                min-height: 48px;
+            }
+            #toolbar .btn {
+                font-size: 11px;
+                padding: 4px 10px;
+            }
+            .dropdown .dropdown-menu {
+                min-width: 140px;
+            }
+            .dropdown .dropdown-menu .dropdown-item {
+                font-size: 12px;
+                padding: 6px 14px;
+            }
+            #zoomControls {
+                bottom: 12px;
+                right: 12px;
+                padding: 4px 10px 4px 8px;
+                gap: 4px;
+            }
+            #zoomControls input[type="range"] {
+                width: 70px;
+            }
+            #zoomControls button {
+                width: 26px;
+                height: 26px;
+                font-size: 15px;
+            }
+            #zoomLabel {
+                min-width: 38px;
+                font-size: 11px;
+            }
+            #modalBox {
+                padding: 24px 20px 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #toolbar .btn {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+            #zoomControls input[type="range"] {
+                width: 50px;
+            }
+            #modalBox .slider-row {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+        }
+    </style>
 </head>
 <body>
-<img src="image4.jpg"></img>
-<h1 id="header"><a href="https://www.youtube.com/watch?v=ltq55cmBuSc"> "Смотрите новый выпуск этого шоу до выпуска по этой ссылке!"</a></h1>
+
+    <!-- ═══ Toolbar ═══ -->
+    <div id="toolbar">
+        <div class="file-input-wrap">
+            <button class="btn primary" id="loadBtn">Загрузить</button>
+            <input type="file" id="fileInput" accept="image/*" />
+        </div>
+
+        <!-- Dropdown для выделения -->
+        <div class="dropdown" id="selectionDropdown">
+            <button class="btn" id="selectionBtn">Selection: Rectangle</button>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <div class="dropdown-item active" data-tool="rectangle">Rectangle</div>
+                <div class="dropdown-item" data-tool="lasso">Лассо</div>
+                <div class="dropdown-item" data-tool="selectAll">Select all</div>
+            </div>
+        </div>
+
+        <button class="btn" id="applyBtn" disabled>Apply JPEG</button>
+        <button class="btn danger" id="undoBtn" disabled>Undo</button>
+
+        <div class="spacer"></div>
+        <span style="font-size:13px;color:#8888a8;display:none;" id="imageInfo"></span>
+    </div>
+
+    <!-- ═══ Canvas container ═══ -->
+    <div id="canvasContainer">
+        <canvas id="mainCanvas"></canvas>
+
+        <!-- Zoom controls (bottom right) -->
+        <div id="zoomControls">
+            <button id="zoomOut" title="Уменьшить">−</button>
+            <input type="range" id="zoomSlider" min="5" max="300" value="100" step="1" />
+            <button id="zoomIn" title="Увеличить">+</button>
+            <span id="zoomLabel">100%</span>
+        </div>
+    </div>
+
+    <!-- ═══ Modal ═══ -->
+    <div id="modalOverlay">
+        <div id="modalBox">
+            <h3>JPEG distortion</h3>
+            <div class="sub">Quality (1 — max, 100 — min)</div>
+
+            <div class="slider-row">
+                <label for="qualitySlider">Quality</label>
+                <input type="range" id="qualitySlider" min="1" max="100" value="30" />
+                <span class="quality-value" id="qualityDisplay">30</span>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-cancel" id="modalCancel">Cancel</button>
+                <button class="btn btn-apply" id="modalApply">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════
+        //  STATE
+        // ═══════════════════════════════════════════════════════════════
+
+        const state = {
+            image: null,
+            canvas: document.getElementById('mainCanvas'),
+            ctx: null,
+            zoom: 100,
+            selection: null,          // { points: [{x,y}, ...] } или null
+            tool: 'rectangle',        // 'rectangle' | 'lasso'
+            isDrawing: false,
+            drawPoints: [],
+            bufferCanvas: document.createElement('canvas'),
+            bufferCtx: null,
+            hasImage: false,
+            undoStack: [],
+            maxUndo: 10,
+            isDistorting: false,
+        };
+
+        const canvas = state.canvas;
+        const ctx = canvas.getContext('2d');
+        state.ctx = ctx;
+
+        const bufferCanvas = state.bufferCanvas;
+        const bufferCtx = bufferCanvas.getContext('2d');
+        state.bufferCtx = bufferCtx;
+
+        // DOM refs
+        const $ = id => document.getElementById(id);
+        const fileInput = $('fileInput');
+        const loadBtn = $('loadBtn');
+        const selectionBtn = $('selectionBtn');
+        const dropdownMenu = $('dropdownMenu');
+        const applyBtn = $('applyBtn');
+        const undoBtn = $('undoBtn');
+        const zoomSlider = $('zoomSlider');
+        const zoomOut = $('zoomOut');
+        const zoomIn = $('zoomIn');
+        const zoomLabel = $('zoomLabel');
+        const container = $('canvasContainer');
+        const modalOverlay = $('modalOverlay');
+        const qualitySlider = $('qualitySlider');
+        const qualityDisplay = $('qualityDisplay');
+        const modalApply = $('modalApply');
+        const modalCancel = $('modalCancel');
+        const imageInfo = $('imageInfo');
+
+        // ═══════════════════════════════════════════════════════════════
+        //  HELPERS
+        // ═══════════════════════════════════════════════════════════════
+
+        function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+
+        function screenToImage(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function rectToPolygon(x, y, w, h) {
+            return [
+                { x, y },
+                { x: x + w, y },
+                { x: x + w, y: y + h },
+                { x, y: y + h }
+            ];
+        }
+
+        function isValidPolygon(points) {
+            return points && points.length >= 3;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  RENDER
+        // ═══════════════════════════════════════════════════════════════
+
+        function render() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            if (!state.hasImage) {
+                ctx.fillStyle = '#3a3a52';
+                ctx.font = '20px "Segoe UI", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('📂 Загрузите изображение', w / 2, h / 2);
+                return;
+            }
+
+            ctx.drawImage(bufferCanvas, 0, 0);
+
+            // Отрисовка выделения (полигон)
+            if (state.selection && isValidPolygon(state.selection.points)) {
+                const pts = state.selection.points;
+                // Затемнение снаружи
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, w, h);
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) {
+                    ctx.lineTo(pts[i].x, pts[i].y);
+                }
+                ctx.closePath();
+                ctx.clip('evenodd');
+                ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                ctx.fillRect(0, 0, w, h);
+                ctx.restore();
+
+                // Рамка
+                ctx.save();
+                ctx.strokeStyle = '#6aafff';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) {
+                    ctx.lineTo(pts[i].x, pts[i].y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Временное рисование (drawPoints)
+            if (state.isDrawing && state.drawPoints.length > 0) {
+                const pts = state.drawPoints;
+                ctx.save();
+                ctx.strokeStyle = '#6aafff';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) {
+                    ctx.lineTo(pts[i].x, pts[i].y);
+                }
+                if (state.tool === 'lasso') {
+                    // просто линия
+                } else if (state.tool === 'rectangle' && pts.length === 2) {
+                    const x1 = pts[0].x,
+                        y1 = pts[0].y;
+                    const x2 = pts[1].x,
+                        y2 = pts[1].y;
+                    const x = Math.min(x1, x2);
+                    const y = Math.min(y1, y2);
+                    const w = Math.abs(x2 - x1);
+                    const h = Math.abs(y2 - y1);
+                    ctx.strokeRect(x, y, w, h);
+                    ctx.fillStyle = 'rgba(106, 175, 255, 0.15)';
+                    ctx.fillRect(x, y, w, h);
+                }
+                ctx.restore();
+            }
+
+            updateUI();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  ZOOM
+        // ═══════════════════════════════════════════════════════════════
+
+        function applyZoom() {
+            const z = state.zoom / 100;
+            const imgW = state.hasImage ? bufferCanvas.width : 800;
+            const imgH = state.hasImage ? bufferCanvas.height : 600;
+
+            canvas.width = imgW;
+            canvas.height = imgH;
+
+            canvas.style.width = (imgW * z) + 'px';
+            canvas.style.height = (imgH * z) + 'px';
+
+            zoomSlider.value = state.zoom;
+            zoomLabel.textContent = Math.round(state.zoom) + '%';
+
+            render();
+        }
+
+        function setZoom(val) {
+            state.zoom = clamp(val, 5, 300);
+            applyZoom();
+        }
+
+        function zoomInStep() {
+            const steps = [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 175, 200, 250, 300];
+            let current = state.zoom;
+            let next = steps.find(s => s > current + 0.5);
+            if (!next) next = steps[steps.length - 1];
+            setZoom(next);
+        }
+
+        function zoomOutStep() {
+            const steps = [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 175, 200, 250, 300];
+            let current = state.zoom;
+            let prev = steps.slice().reverse().find(s => s < current - 0.5);
+            if (!prev) prev = steps[0];
+            setZoom(prev);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  IMAGE LOADING
+        // ═══════════════════════════════════════════════════════════════
+
+        function loadImage(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    bufferCanvas.width = img.width;
+                    bufferCanvas.height = img.height;
+                    bufferCtx.drawImage(img, 0, 0);
+
+                    state.image = img;
+                    state.hasImage = true;
+                    state.selection = null;
+                    state.drawPoints = [];
+                    state.isDrawing = false;
+                    state.undoStack = [];
+                    applyBtn.disabled = false;
+                    undoBtn.disabled = true;
+                    setZoom(100);
+
+                    imageInfo.textContent = `${img.width} × ${img.height}`;
+                    imageInfo.style.display = 'inline';
+                    setTool('rectangle');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  UNDO
+        // ═══════════════════════════════════════════════════════════════
+
+        function pushUndo() {
+            if (!state.hasImage) return;
+            const url = bufferCanvas.toDataURL('image/png');
+            state.undoStack.push(url);
+            if (state.undoStack.length > state.maxUndo) {
+                state.undoStack.shift();
+            }
+            undoBtn.disabled = false;
+        }
+
+        function undo() {
+            if (state.undoStack.length === 0) return;
+            const url = state.undoStack.pop();
+            if (state.undoStack.length === 0) {
+                undoBtn.disabled = true;
+            }
+            const img = new Image();
+            img.onload = () => {
+                bufferCanvas.width = img.width;
+                bufferCanvas.height = img.height;
+                bufferCtx.drawImage(img, 0, 0);
+                state.image = img;
+                state.hasImage = true;
+                state.selection = null;
+                state.drawPoints = [];
+                state.isDrawing = false;
+                applyBtn.disabled = false;
+                applyZoom();
+            };
+            img.src = url;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  JPEG DISTORTION
+        // ═══════════════════════════════════════════════════════════════
+
+        function applyJPEGDistortion(quality) {
+            if (!state.hasImage || state.isDistorting) return;
+            state.isDistorting = true;
+            applyBtn.disabled = true;
+
+            pushUndo();
+
+            const w = bufferCanvas.width;
+            const h = bufferCanvas.height;
+
+            // 1. Оригинал
+            const origCanvas = document.createElement('canvas');
+            origCanvas.width = w;
+            origCanvas.height = h;
+            const origCtx = origCanvas.getContext('2d');
+            origCtx.drawImage(bufferCanvas, 0, 0);
+
+            // 2. Искажённая копия (весь холст)
+            const distortedCanvas = document.createElement('canvas');
+            distortedCanvas.width = w;
+            distortedCanvas.height = h;
+            const distCtx = distortedCanvas.getContext('2d');
+            distCtx.drawImage(bufferCanvas, 0, 0);
+
+            const quality01 = quality / 100;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(distortedCanvas, 0, 0);
+            tempCanvas.toBlob((blob) => {
+                if (!blob) {
+                    state.isDistorting = false;
+                    applyBtn.disabled = false;
+                    return;
+                }
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.onload = () => {
+                    distCtx.clearRect(0, 0, w, h);
+                    distCtx.drawImage(img, 0, 0);
+                    URL.revokeObjectURL(url);
+
+                    // 3. Результат: начинаем с оригинала
+                    const resultCanvas = document.createElement('canvas');
+                    resultCanvas.width = w;
+                    resultCanvas.height = h;
+                    const resCtx = resultCanvas.getContext('2d');
+                    resCtx.drawImage(origCanvas, 0, 0);
+
+                    // 4. Если есть выделение – накладываем искажённое только внутри полигона
+                    if (state.selection && isValidPolygon(state.selection.points)) {
+                        const pts = state.selection.points;
+                        resCtx.save();
+                        resCtx.beginPath();
+                        resCtx.moveTo(pts[0].x, pts[0].y);
+                        for (let i = 1; i < pts.length; i++) {
+                            resCtx.lineTo(pts[i].x, pts[i].y);
+                        }
+                        resCtx.closePath();
+                        resCtx.clip();
+                        resCtx.drawImage(distortedCanvas, 0, 0);
+                        resCtx.restore();
+                    } else {
+                        // Нет выделения – заменяем всё
+                        resCtx.drawImage(distortedCanvas, 0, 0);
+                    }
+
+                    // 5. Обновляем буфер
+                    bufferCanvas.width = w;
+                    bufferCanvas.height = h;
+                    bufferCtx.drawImage(resultCanvas, 0, 0);
+
+                    const newDataUrl = bufferCanvas.toDataURL('image/png');
+                    const newImg = new Image();
+                    newImg.onload = () => {
+                        state.image = newImg;
+                        state.hasImage = true;
+                        state.selection = null;
+                        state.drawPoints = [];
+                        state.isDrawing = false;
+                        state.isDistorting = false;
+                        applyBtn.disabled = false;
+                        setTool('rectangle');
+                        render();
+                    };
+                    newImg.src = newDataUrl;
+                };
+                img.onerror = () => {
+                    state.isDistorting = false;
+                    applyBtn.disabled = false;
+                };
+                img.src = url;
+            }, 'image/jpeg', quality01);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  TOOLS & SELECTION
+        // ═══════════════════════════════════════════════════════════════
+
+        function setTool(tool) {
+            state.tool = tool; // 'rectangle' или 'lasso'
+            state.isDrawing = false;
+            state.drawPoints = [];
+            state.selection = null; // очищаем при смене инструмента
+            // Обновляем текст кнопки
+            const label = tool === 'rectangle' ? 'Прямоугольник' : 'Лассо';
+            selectionBtn.innerHTML = `▽ Выделение: ${label}`;
+            // Обновляем активный пункт в меню
+            document.querySelectorAll('.dropdown-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.tool === tool) {
+                    item.classList.add('active');
+                }
+            });
+            // Скрываем меню
+            dropdownMenu.classList.remove('show');
+            container.style.cursor = 'crosshair';
+            render();
+        }
+
+        function selectAll() {
+            if (!state.hasImage) return;
+            const w = bufferCanvas.width;
+            const h = bufferCanvas.height;
+            const pts = rectToPolygon(0, 0, w, h);
+            state.selection = { points: pts };
+            state.isDrawing = false;
+            state.drawPoints = [];
+            // Не меняем инструмент, просто выделяем всё
+            render();
+            // Скрываем меню
+            dropdownMenu.classList.remove('show');
+        }
+
+        // ── Обработчики мыши для рисования ──
+
+        function onMouseDown(e) {
+            if (!state.hasImage) return;
+            if (state.tool !== 'rectangle' && state.tool !== 'lasso') return;
+            if (state.isDrawing) return;
+
+            const pos = screenToImage(e.clientX, e.clientY);
+            state.isDrawing = true;
+            state.drawPoints = [pos];
+            render();
+        }
+
+        function onMouseMove(e) {
+            if (!state.isDrawing) return;
+            const pos = screenToImage(e.clientX, e.clientY);
+            if (state.tool === 'rectangle') {
+                if (state.drawPoints.length === 1) {
+                    state.drawPoints.push(pos);
+                } else {
+                    state.drawPoints[1] = pos;
+                }
+                render();
+            } else if (state.tool === 'lasso') {
+                state.drawPoints.push(pos);
+                render();
+            }
+        }
+
+        function onMouseUp(e) {
+            if (!state.isDrawing) return;
+            if (state.tool === 'rectangle') {
+                if (state.drawPoints.length === 2) {
+                    const p1 = state.drawPoints[0];
+                    const p2 = state.drawPoints[1];
+                    const x = Math.min(p1.x, p2.x);
+                    const y = Math.min(p1.y, p2.y);
+                    const w = Math.abs(p2.x - p1.x);
+                    const h = Math.abs(p2.y - p1.y);
+                    if (w > 2 && h > 2) {
+                        state.selection = { points: rectToPolygon(x, y, w, h) };
+                    } else {
+                        state.selection = null;
+                    }
+                } else {
+                    state.selection = null;
+                }
+                state.isDrawing = false;
+                state.drawPoints = [];
+                render();
+            } else if (state.tool === 'lasso') {
+                if (state.drawPoints.length >= 3) {
+                    state.selection = { points: [...state.drawPoints] };
+                } else {
+                    state.selection = null;
+                }
+                state.isDrawing = false;
+                state.drawPoints = [];
+                render();
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  MODAL
+        // ═══════════════════════════════════════════════════════════════
+
+        function openModal() {
+            const val = parseInt(qualitySlider.value, 10) || 30;
+            qualityDisplay.textContent = val;
+            qualitySlider.value = val;
+            modalOverlay.classList.add('open');
+        }
+
+        function closeModal() {
+            modalOverlay.classList.remove('open');
+        }
+
+        function confirmDistortion() {
+            const q = parseInt(qualitySlider.value, 10) || 30;
+            closeModal();
+            applyJPEGDistortion(q);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  UI UPDATE
+        // ═══════════════════════════════════════════════════════════════
+
+        function updateUI() {
+            // nothing
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  EVENT BINDING
+        // ═══════════════════════════════════════════════════════════════
+
+        // ── Load image ──
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                loadImage(e.target.files[0]);
+            }
+            fileInput.value = '';
+        });
+        loadBtn.addEventListener('click', () => fileInput.click());
+
+        // ── Drag & drop ──
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            container.classList.add('drag-over');
+        });
+        container.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            container.classList.remove('drag-over');
+        });
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            container.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length) loadImage(files[0]);
+        });
+
+        // ── Dropdown ──
+        selectionBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdownMenu.classList.toggle('show');
+        });
+
+        // Клик по пунктам меню
+        document.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const tool = item.dataset.tool;
+                if (tool === 'selectAll') {
+                    selectAll();
+                } else {
+                    setTool(tool);
+                }
+                // Меню скрывается автоматически в setTool или selectAll
+            });
+        });
+
+        // Закрытие меню при клике вне
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#selectionDropdown')) {
+                dropdownMenu.classList.remove('show');
+            }
+        });
+
+        // ── Canvas mouse events ──
+        canvas.addEventListener('mousedown', onMouseDown);
+        canvas.addEventListener('mousemove', onMouseMove);
+        canvas.addEventListener('mouseup', onMouseUp);
+        canvas.addEventListener('mouseleave', () => {
+            if (state.isDrawing) {
+                state.isDrawing = false;
+                state.drawPoints = [];
+                render();
+            }
+        });
+
+        // ── Keyboard shortcuts ──
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (modalOverlay.classList.contains('open')) {
+                    closeModal();
+                } else {
+                    state.selection = null;
+                    state.isDrawing = false;
+                    state.drawPoints = [];
+                    setTool('rectangle');
+                    render();
+                }
+            }
+            if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                if (!state.isDistorting) undo();
+            }
+            if (e.key === 'Enter' && modalOverlay.classList.contains('open')) {
+                confirmDistortion();
+            }
+            if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                selectAll();
+            }
+        });
+
+        // ── Apply distortion ──
+        applyBtn.addEventListener('click', () => {
+            if (!state.hasImage || state.isDistorting) return;
+            openModal();
+        });
+
+        // ── Undo ──
+        undoBtn.addEventListener('click', undo);
+
+        // ── Zoom controls ──
+        zoomSlider.addEventListener('input', () => {
+            setZoom(parseFloat(zoomSlider.value));
+        });
+        zoomIn.addEventListener('click', zoomInStep);
+        zoomOut.addEventListener('click', zoomOutStep);
+
+        container.addEventListener('wheel', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -1 : 1;
+                const newZoom = state.zoom + delta * 8;
+                setZoom(newZoom);
+            }
+        }, { passive: false });
+
+        // ── Modal controls ──
+        qualitySlider.addEventListener('input', () => {
+            const val = parseInt(qualitySlider.value, 10);
+            qualityDisplay.textContent = val;
+        });
+        modalApply.addEventListener('click', confirmDistortion);
+        modalCancel.addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        // ── Window resize ──
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (state.hasImage) applyZoom();
+            }, 100);
+        });
+
+        // ═══════════════════════════════════════════════════════════════
+        //  INIT
+        // ═══════════════════════════════════════════════════════════════
+
+        canvas.width = 800;
+        canvas.height = 600;
+        canvas.style.width = '800px';
+        canvas.style.height = '600px';
+        bufferCanvas.width = 800;
+        bufferCanvas.height = 600;
+        setTool('rectangle');
+        render();
+    </script>
 </body>
 </html>
